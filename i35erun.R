@@ -51,10 +51,10 @@ prior.beta <- function(s,beta,log=TRUE){
 }
 
 prior.phi.star <- function(phi.star,tau,Q.s,q){
-  #sum( log(tau^(q/2) * exp(-tau/2 * t(phi.star) %*% Q.s %*% phi.star)) )
   (q/2)*log(tau)-(tau/2)*t(phi.star)%*%Q.s%*%phi.star
 }
 
+# markov-chain monte carlo function (obtaining draws from posterior distribution)
 mcmc <- function(data,nreps=10000,q){
   data <- data[order(data$BMP,decreasing=FALSE),] # order the data from smallest to largest beginning mileposts, and keep only variables of interest
   y <- data$TOTALCRASHES
@@ -96,17 +96,11 @@ mcmc <- function(data,nreps=10000,q){
   mu = matrix(0,nrow=nreps,ncol=nrow(X))
   prediction = matrix(0,nrow=nreps,ncol=nrow(X))
   
-  ##
-  #   theta.draws[1,(ncol(X)+1):ncol(theta.draws)] = 0
-  ##
-  
   amcmc <- list(mn=theta.draws[1,],var=matrix(0,nrow=length(theta.draws[1,]),ncol=length(theta.draws[1,])))
   
   c <- 0
   for(i in 2:nreps){
-    
     theta.current <- theta.draws[i-1,]
-    
     if(i<250){
       
       ## Update theta ##
@@ -128,10 +122,6 @@ mcmc <- function(data,nreps=10000,q){
     } else { 
       theta.draws[i,] <- theta.current
     }
-    
-    ##
-    #     theta.draws[i,(ncol(X)+1):ncol(theta.draws)] = 0
-    ##
     
     amcmc <- AMCMC.update(theta.draws[i,],amcmc$mn,amcmc$var,i)
     
@@ -174,13 +164,15 @@ mcmc <- function(data,nreps=10000,q){
   return(list("beta"=beta,"phi"=phi,"s"=s,"tau"=tau,"dic"=DIC,"pd"=pd,"prediction"=prediction,"mu"=mu))
 }
 
+
+# run monte carlo markov chain #
 test <- mcmc(i35e,nreps=120000,q=70)
 burn <- 15000
 
 beta <- test$beta[-c(1:burn),]
 phi <- test$phi[-c(1:burn),]
 prediction <- test$prediction[-c(1:burn),]
-
+# #
 
 # Beta credible intervals #
 beta.quantiles <- apply(beta,2,function(x) quantile(x,probs=c(.025,.975)))
@@ -228,56 +220,3 @@ for(i in 1:ncol(prediction)){
   }
 }
 # #
-
-
-for(i in 1:ncol(beta)){
-  print(mcse(beta[,i])$se)
-}
-
-phi.mcse <- numeric(ncol(phi))
-for(i in 1:ncol(phi)){
-  phi.mcse[i] <- mcse(phi[,i])$se
-  print(mcse(phi[,i])$se)
-}
-
-
-
-par(las=2)
-par(mar=c(8,4,4,2))
-plot(1:(ncol(beta)-1),beta.quantiles[1,-1],pch="-",ylim=c(-1.7,1.65),main="Coefficients",xaxt='n',xlab='',ylab=expression(beta),cex=2)
-abline(h=0,lty=2,col='darkred')
-points(1:(ncol(beta)-1),beta.quantiles[2,-1],pch="-",cex=2)
-segments(1:(ncol(beta)-1),beta.quantiles[1,-1],1:(ncol(beta)-1),beta.quantiles[2,-1],lwd=2)
-axis(1,1:(ncol(beta)-1),labels=c("Median Width < 30 ft","Median Width Varies","No Median Barrier","Left Shoulder Width (ft)","Left Shoulder Type Other","Road Width (ft)","Right Shoulder Width (ft)","Number of Lanes","Lane Width (ft)"),cex.axis=.7)
-
-
-# Mus_s exp(t(x_s)%*%beta + phi_s)
-# data = i94
-# data[,c(18,20,21,23,24,25)] = scale(data[,c(18,20,21,23,24,25)],center=TRUE,scale=TRUE)
-# X <- model.matrix(TOTALCRASHES ~ ., family="poisson",data=data[,c(4,16:21,24,25)])
-# mu <- matrix(NA,nrow=nrow(beta),nrow(X))
-# for(i in 1:nrow(beta)){
-#   mu[i,] = t(exp(X%*%t(as.matrix(beta[i,]))+phi[i,]))
-# }
-
-mu <- test$mu[-c(1:burn),]
-
-
-mu.quant <- apply(mu,2,function(x) quantile(x,probs=c(.025,.5,.975)))
-plot(1:ncol(prediction),mu.quant[3,],pch="-",xlab="Road segment",ylab=expression(mu),main="I94: Relative Risk")
-points(1:ncol(prediction),mu.quant[1,],pch="-")
-segments(1:ncol(prediction),mu.quant[1,],1:ncol(prediction),mu.quant[3,])
-
-for(i in 1:ncol(prediction)){
-  if(mean(mu[,i]>1)>=.95){
-    print(i)
-    segments(i,mu.quant[1,i],i,mu.quant[3,i],col='red')
-  }  
-}
-
-for(i in 1:ncol(prediction)){
-  if(mean(mu[,i]<1)>=.95){
-    print(i)
-    segments(i,mu.quant[1,i],i,mu.quant[3,i],col='blue')
-  }  
-}
