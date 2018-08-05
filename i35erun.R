@@ -1,89 +1,61 @@
+# import libraries
 library(smoothmest) # double exponential distribution
-library(MASS) # MV norm distribution
-library(MCMCpack)
+library(MASS) # mv-normal distribution
+library(MCMCpack) 
 library(mcmcse) 
 library(coda)
 
-i35e <- read.csv("./i35e.csv")[,-1]
+# import functions
+source('functions.R')
 
-create.w <- function(data,order=1){
-  n <- nrow(data)
-  w <- matrix(0,nrow=n,ncol=n)
-  if(order==1){
-    for(i in 1:(n-1)){
-      w[i+1,i] <-  w[i,i+1] <- w[1,2] <- w[n-1,n] <- 1
-    }
-  }
-  
-  if(order==2){
-    for(i in 1:(n-2)){
-      w[i+1,i] <-  w[i+2,i] <- w[i,i+1] <- w[i,i+2] <- w[1,2] <- w[1,3] <- w[n-1,n] <- w[n,n-1] <- 1
-    }
-  }
-  
-  return(w)
-}
-
-AMCMC.update <- function(draw,cur.mn,cur.var,cur.it){
-  if(cur.it >0){
-    mn <- ((cur.it-1)*cur.mn+draw)/cur.it
-    if(cur.it==1){
-      v <- matrix(0,nrow=length(draw),ncol=length(draw))
-    } else {
-      v <- (cur.it-2)*cur.var+(cur.it-1)*(cur.mn%*%t(cur.mn))+draw%*%t(draw)
-      v <- (v-cur.it*(mn%*%t(mn)))/(cur.it-1)
-    }
-  } else {
-    mn <- matrix(0,nrow=nrow(cur.mn),ncol=1)
-    v <- matrix(0,nrow=nrow(draw),ncol=nrow(draw))
-  }
-  return(list(mn=mn,var=v))
-}
-
-likelihood <- function(theta,x.star,y,expected.crash,log=TRUE){
-  l <- sum( dpois(y, lambda = expected.crash * exp((x.star)%*%theta), log=log) )
-  return(l)
-}
-
-prior.beta <- function(s,beta,log=TRUE){
-  p <- sum( log(ddoublex(beta, mu=0, lambda=s)) )
-  return(p)
-}
-
-prior.phi.star <- function(phi.star,tau,Q.s,q){
-  (q/2)*log(tau)-(tau/2)*t(phi.star)%*%Q.s%*%phi.star
-}
+# import data, I35
+i35e = read.csv("./i35e.csv")[,-1]
 
 # markov-chain monte carlo function (obtaining draws from posterior distribution)
-mcmc <- function(data,nreps=10000,q){
-  data <- data[order(data$BMP,decreasing=FALSE),] # order the data from smallest to largest beginning mileposts, and keep only variables of interest
-  y <- data$TOTALCRASHES
+mcmc = function(data, nreps=100000, q){
+  # order the data from smallest to largest beginning mileposts (for spatial estimation)
+  data = data[order(data$BMP, decreasing=FALSE),] 
   
-  X <- model.matrix(TOTALCRASHES ~ ., family="poisson",offset=log(data$expected.crash),data=data[,c(4,16:21,24,25)])
-  W <- create.w(data) # make sure that the data is is order, smallest to largest
+  # create proximity matrix
+  W = create.w(data, order=1)
   
-  ##  Create new X matrix ##
-  P.orthog <- diag(nrow(X)) - X %*% solve(t(X)%*%X) %*% t(X)
+  # response variable
+  y = data$TOTALCRASHES
+  
+  # X matrix
+  covariates = c("TOTALCRASHES","MEDWID","MED_TYPE","LSHLDWID","LSHL_TYP","SURF_WID","RSHLDWID","NO_LANES","LANEWID")
+  X = model.matrix(TOTALCRASHES~., data=data[,covariates])
+  
+  # orthogonalize spatial effects
+  P.orthog = diag(nrow(X)) - X%*%solve(t(X)%*%X) %*% t(X)
   M.eigen = eigen(P.orthog %*% W %*% P.orthog)
-  M <- M.eigen$vectors[,order(M.eigen$values,decreasing=TRUE)[1:q]]
-  X.star <- cbind(X,M)
+  M = M.eigen$vectors[,order(M.eigen$values,decreasing=TRUE)[1:q]]
+  X.star = cbind(X,M)
   Q = diag(rowSums(W)) - W
   Q.s = t(M)%*%Q%*%M
   
-  ## Expected crashes ##
+  # calculate expected crashes
   data$length = (data$EMP-data$BMP)
   data$expected.crash = sum(data$TOTALCRASHES) / (sum(data$AADT*data$length)) * data$AADT*data$length
-  ## ##
-  
-  ## Center and scale ##
+
+  # center and scale covariates (for better convergence)
   data[,c(18,20,21,23,24,25)] = scale(data[,c(18,20,21,23,24,25)],center=TRUE,scale=TRUE)
-  ## ##
-  
+
+  # initialize matrix for storing draws
   theta.draws <- matrix(0,nrow=nreps,ncol=ncol(X)+q)
-  theta.draws[1,] <- (glm(y ~ X.star[,-1], family="poisson",offset=log(data$expected.crash),data=data[,c(4,16:21,24,25)])$coef)
+  
+  # begin draws at maximum likelihood estimates
+  mod = glm(y ~ X.star[,-1], family="poisson", offset=log(data$expected.crash), data=data[,c(4,16:21,24,25)])
+  theta.draws[1,] <- mod$coef
+  
+  # replace NA's with 0's
   theta.draws[1,] = ifelse(is.na(theta.draws[1,]),0,theta.draws[1,])
+  
+  # initialize beta vector
   beta = theta.draws[,1:ncol(X)]
-  colnames(beta) = names(glm(TOTALCRASHES ~ ., family="poisson",offset=log(data$expected.crash),data=data[,c(4,16:21,24,25)])$coef)
+  colnames(beta) = names(glm(TOTALCRASHES ~ ., family="poisson", offset=log(data$expected.crash), data=data[,c(4,16:21,24,25)])$coef)
+  
+  # initialize phi matrix
   phi = matrix(0,nrow=nreps,ncol=length(y))
   phi.star = matrix(0,nrow=nreps,ncol=q)
   phi.star[1,] = theta.draws[1,(ncol(X)+1):ncol(theta.draws)]
@@ -102,13 +74,13 @@ mcmc <- function(data,nreps=10000,q){
   for(i in 2:nreps){
     theta.current <- theta.draws[i-1,]
     if(i<250){
-      
-      ## Update theta ##
+      # update theta
       theta.proposal <- mvrnorm(1, theta.current, Sigma=(0.01^2) * diag(ncol(theta.draws))) 
     } else {
       theta.proposal <- mvrnorm(1, theta.current, Sigma= 2.4^2/ncol(theta.draws) * (amcmc$var + (0.01^2) * diag(ncol(theta.draws))) )
     }
     
+    # calculate metropolis hastings ratio
     mh.ratio <- likelihood(as.matrix(theta.proposal),X.star,y,data$expected.crash) + 
       prior.beta(s=s[i-1],theta.proposal[1:ncol(X)]) + 
       prior.phi.star(theta.proposal[(ncol(X)+1):length(theta.proposal)],tau=tau[i-1],Q.s,q) - 
@@ -116,6 +88,8 @@ mcmc <- function(data,nreps=10000,q){
       prior.beta(s=s[i-1],theta.current[1:ncol(X)]) - 
       prior.phi.star(theta.current[(ncol(X)+1):length(theta.current)],tau=tau[i-1],Q.s,q)
     
+    
+    # update draws
     if(log(runif(1)) < mh.ratio) {
       theta.draws[i,] <- theta.proposal
       c <- c + 1
@@ -123,70 +97,67 @@ mcmc <- function(data,nreps=10000,q){
       theta.draws[i,] <- theta.current
     }
     
+    # adaptive mcm update
     amcmc <- AMCMC.update(theta.draws[i,],amcmc$mn,amcmc$var,i)
     
     beta[i,] = theta.draws[i,(1:ncol(X))]
     phi.star[i,] = cbind(theta.draws[i,(ncol(X)+1):ncol(theta.draws)])
     phi[i,] = M %*% cbind(theta.draws[i,(ncol(X)+1):ncol(theta.draws)]) 
-    ## ##
     
-    ## Update s ##
+    
+    # update s
     a = 2.01
     b = 1
     s[i] = rinvgamma(1,a + ncol(beta), sum(abs(beta[i,]) + b))
-    ## ##
     
-    ## Update tau ##
+    # update tau
     a.tau = 2.01
     b.tau = 1
     tau[i] = rgamma(1,q/2 + a.tau, 1/2*t(phi.star[i,])%*%Q.s%*%phi.star[i,] + 1/b.tau ) 
-    ## ##
     
-    
-    ## DIC ##
+    # store -2 log likelihood (for DIC)
     d.theta[i] =  -2 * likelihood(as.matrix(theta.draws[i,]),X.star,y,data$expected.crash)
-    ## ##
     
-    ## Prediction ##
+    # prediction
     mu[i-1,] = exp(X%*%beta[i,] + phi[i,])
     prediction[i-1,] = rpois(ncol(mu),data$expected.crash * mu[i-1,])
-    ## ##
+    print(i)
   }
   
-  ## DIC ##
+  # calculate DIC
   theta.mean = amcmc$mn
   dbar = mean(d.theta)
   pd = dbar - -2 * likelihood(as.matrix(theta.mean),X.star,y,data$expected.crash)
   DIC = pd + dbar
-  ## ##
   
+  # 
   print(c/nreps)
   return(list("beta"=beta,"phi"=phi,"s"=s,"tau"=tau,"dic"=DIC,"pd"=pd,"prediction"=prediction,"mu"=mu))
 }
 
 
-# run monte carlo markov chain #
-test <- mcmc(i35e,nreps=120000,q=70)
-burn <- 15000
+# run monte carlo markov chain
+draws <- mcmc(i35e,nreps=1000,q=70)
 
-beta <- test$beta[-c(1:burn),]
-phi <- test$phi[-c(1:burn),]
-prediction <- test$prediction[-c(1:burn),]
-# #
+
+# remove burn-in
+burn <- 150
+beta <- draws$beta[-c(1:burn),]
+phi <- draws$phi[-c(1:burn),]
+prediction <- draws$prediction[-c(1:burn),]
+
 
 # Beta credible intervals #
 beta.quantiles <- apply(beta,2,function(x) quantile(x,probs=c(.025,.975)))
 beta.quantiles <- rbind(beta.quantiles,apply(beta,2,mean)) 
 row.names(beta.quantiles)[3] <- "Mean"
-stargazer(t(beta.quantiles))
-
 # #
 
 # Prediction intervales #
 pred.quantiles <- apply(prediction,2,function(x) quantile(x,probs=c(.025,.975)))
 # #
 
-# plot intervales #
+# plot prediction intervals #
 plot(1:ncol(prediction),pred.quantiles[2,],pch="-",xlab="Road segment",ylab="Number of crashes",main="Prediction Intervals (I35E)")
 points(1:ncol(prediction),pred.quantiles[1,],pch="-")
 segments(1:ncol(prediction),pred.quantiles[1,],1:ncol(prediction),pred.quantiles[2,])
@@ -219,4 +190,3 @@ for(i in 1:ncol(prediction)){
     
   }
 }
-# #
