@@ -1,0 +1,14 @@
+\chapter{A Spatio-Temporal Model for Bronchiolitis Rates}
+Give a 1 paragraph summary of this chapter (easier to write once you fill in details below.
+\red{Keep this statement in your prospectus somewhere.} To complete the project requirement for a Masters degree in Statistics from BYU, I propose to fit and present the results of the following model.
+
+\section{Model}
+We assume that each section of highway follow a Poisson distribution as follows:
+$$  Y_s \sim \textrm{Poisson}\big( E_s \mu_s\big) $$
+$$ \textrm{ where } E_s = \frac{\sum_s Y_s}{\sum_s \textrm{AADT}_s * \textrm{length}_s} * \textrm{AADT}_s * \textrm{length}_s \textrm{ and } \mu_s = \textrm{exp}\{ X_s'\beta + \phi_s \}$$
+
+
+\section{Model Fitting}
+State how you are going to fit the model (adaptive MCMC).  How many draws are you going to get?  What is your burn going to be?
+
+

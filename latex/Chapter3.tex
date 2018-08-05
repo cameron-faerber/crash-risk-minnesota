@@ -1,0 +1,45 @@
+\chapter{A Spatial Model for Car Crash Rates}
+Give a 1 paragraph summary of this chapter (easier to write once you fill in details below.
+\red{Keep this statement in your prospectus somewhere.} To complete the project requirement for a Masters degree in Statistics from BYU, I propose to fit and present the results of the following model.
+
+\section{Model}
+We assume that each section of highway follow a Poisson distribution as follows:
+$$  Y_s \sim \textrm{Poisson}\big( E_s \mu_s\big) $$
+
+Here $Y_s$ represents the number of accidents on segment $s$ of a highway. We assume that the number of accidents on each segment of a highway are distributed Poisson with expected value of $E_s * \mu_s$. $ E_s$ can be thought of as the expected number of crashes on segment $s$ of the highway. \\
+
+  To calculate $E_s$ we take the number of accidents along the entire highway, and divide by the total number of `car miles` driven to obtain an expected number of crashes per car mile driven for the entire highway. We then multiple that expected number of crashes per car mile and multiply that by the number of `car miles` driven on segment $s$ of the highway. We calculate the number of `car miles` driven in a specific segment by multiplying the annual average daily traffic (AADT: the average number of cars that drive through that specific segment of highway) by the length of that specific segment (in miles). Thus $E_s = \frac{\sum_s Y_s}{\sum_s \textrm{AADT}_s * \textrm{length}_s} * \textrm{AADT}_s * \textrm{length}_s $ 
+  
+  
+We use the log-link function on $\mu$ to ensure that all values are positive and then we set $ log(\mu_s) =  X_s' \beta + \phi_s $. The vector $\beta$ is the most important part of the model. It represents the relative risks of each of the factors of interest which tell us which factors of a road lead to increased or decreased risk of car accidents. We also include $\phi_s$ which models the spatial dependence. However, in this form, the $\phi_s$ can potentially confound the main effects and increase the variance of the $\beta$'s. \\
+
+To correct for this, we will fit the spatial effects that are orthogonal to the main effects. To do this, let $M \phi_s^* = \phi_s$ and $X_s^* = X_s M$. We now have: $X_s\beta + \phi_s = X_s\beta + M \phi^* = [XM] * [\beta \phi_s^*]$. Now let $\beta \phi_s^* = \theta$ and $X^* = [XM]$. M is known as the Moran Operator (Hughes et. al 2012) and is obtained by:
+
+\begin{enumerate}
+
+\item Calculate $P^\perp = I - X(X'X)^{-1}X'$
+\item Find $M^* =  P^\perp A P^\perp $ where $A$ is the adjacency matrix
+\item Take the $q \ll n$ and set M equal to the eigenvectors of $M^*$ associated with the q largest eigenvalues
+
+\end{enumerate}
+
+We must choose an appropriate value for $q$ (the number of eigenvectors taken from $M^*$ to create the Moran operator). $q$ can be thought of as a smoothing parameter--the smaller the value of q, the smoother the sparial correlation. Instead of arbitrarily choosing a value for $q$, we will use deviance information criterion to determine the most appropriate value for $q$. We will compare DIC values for $q$ ranging from 10 to 100, and choose the value of $q$ that is associated with the lowest DIC value. We will assume that the most appropriate value of $q$ is constant accross all highways in Minnesota. \\
+
+We assume that $\beta_i \stackrel{iid}{\sim} Laplace(\mu=0,s) \textrm{ for }  i=1,..,p+1$, where $\mu$ is the location parameter and $s$ is the scale parameter. The scale parameter determines the strength of the LASSO penalty term, or in other words, determines how fast the $\beta$ coefficients are pulled towards zero. Since we don't have information on what value of s to use, we place a hyper-prior on $s$ to be a $\textrm{InverseGamma}(\alpha=2.01,\eta=1)$. An inverse gamma hyperprior fits well for $s$ because it is conjugate. In other words, the complete condition posterior distribution of $s$ will also be an inverse gamma with parameters $\alpha = \alpha_{prior} + p + 1 $, and $\eta = \sum_i |\beta_i| + \eta_{prior}$. \\
+
+
+The prior on the random effects is $p(\phi^*|\tau) \propto \tau^{q/2} exp(- \frac{\tau}{2} \phi^* Q_s \phi^*)$. Here, q is the number of eigenvectors chosen from $M^*$ to form the moran operator M. $Q_s$ is obtained by the following: $Q_s = M'QM$. Note that $Q = diag(\bm{A}\bm{1}) - \bm{A}$, where $\bm{A}$ is the adjacency matrix. We use a conjugate prior on $\tau$.  The prior is a $\textrm{Gamma}(\textrm{a}=2.01,\textrm{b}=1)$. The complete conditional posterior distribution of $\tau$ turns out to be a gamma distribution with parameters $a = q/2 + a_{prior}$ and $b = 1/2 \phi^*  Q_s  \phi^* + 1/b_{prior}$.
+
+\section{Model Fitting}
+State how you are going to fit the model (adaptive MCMC).  How many draws are you going to get?  What is your burn going to be?
+
+We will use the adaptive Markov chain Monte Carlo described in chapter two to fit the model. We will update the parameters in three stages.The starting values for the vector $\theta$ will be given by the coefficient estimates given by a general linear model. The starting value of $s$ (the variance of $\beta$) will be 1. The initial value of $s$ is not overly important since it will quickly be pulled to a more appropriate value by the data. The starting value of $\tau$ will also be set to 1. \\
+
+ First, we will update $\theta$. For the first 250 draws, we will generate a proposal using a $MVN\big(\bm{\mu=\bm{\theta}_{current}}, \bm{\Sigma}=.01^2\bm{I}\big)$. The covariance matrix $\bm{\Sigma}=.01^2\bm{I}$ is used because it allows enough proposals to be accepted such that the adaptive portion of the MCMC can work. After the 250th draw, we begin using proposals from the following multivariate normal distribution: $MVN\big(\bm{\mu=\bm{\theta}_{current}}, \bm{\Sigma}=s_d/(p+1+q) * ( cov(\bm{\theta}) + \epsilon\bm{I})\big)$. As discussed in chapter 2, the values for the scaling parameter $s_d$ and the error term $\epsilon$ can freely be chosen. However, to ensure a good acceptance rate, $s_d$ was chosen to be $2.4^2/(p+q+1)$ and $\epsilon$ was set to $.01^2$. The purpose of setting $\epsilon$ greater than zero is to that the covariance matrix remains positive-definite. \\
+
+ After updating $\bm{\theta}$ we will update $s$ and then  $\tau$. Since we used conjugate priors on both of these parameters, they are easily update by obtaining a random draw from their respective distributions. The full conditional distribution of $s$ is:  $IG\big(\alpha_{prior} + p + 1 ,\sum_i |\beta_i| + \eta_{prior}\big)$ of which we can easily obtain draws from. The full conditional distribution of $\tau$ is $Gamma\big(q/2 + a_{prior},1/2 \phi^*  Q_s  \phi^* + 1/b_{prior}\big)$. \\
+ 
+ We will run the MCMC for 20,000 draws, after a burn-in period of 5,000 leaving a total of 15,000 draws.
+ 
+
+

@@ -1,0 +1,43 @@
+\documentclass[noacknowl]{statthesisMEMOIR}
+
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{subfig}
+\usepackage{float}
+\usepackage{ulem} % underlining
+\usepackage{color}
+\usepackage{amsmath}
+\usepackage{bm}
+\usepackage{verbatim} % allows commenting
+
+\renewcommand{\vec}[1]{\bm{#1}}
+\newcommand{\red}[1]{\textcolor{red}{#1}}
+
+\title{Spatial Modelling of Highway Crash Risk in Minnesota}
+\author{Cameron Faerber}
+\chair{Dr. Matthew Heaton}
+\committee{Dr. Candace Barrett}
+\committeetwo{Dr. Robert Richardson}
+\typeofwork{project} % project or thesis
+\graddate{April 2016}
+\copyrightyear{2016}
+\keywords{Poisson regression, CAR model, spatial, LASSO, adaptive MCMC}
+
+\abstract{Systemic safety improvements to roadways, when selected and targeted appropriately, provide a tremendous opportunity to proactively reduce automobile crashes.  While state and local agencies are starting to embrace the benefit of systemic safety improvements, additional guidance is needed to help these agencies select and target their improvements. As such, detailed information is needed on the crashes and contributing factors that are best targeted by systemic improvements and the types of locations and situations where these crashes occur. In this regard, the Highway Safety Information System (HSIS) collects data such as traffic volume, road characteristics, and number and type of crashes that, through statistical analysis, allow us to pinpoint locations with high crash risk and identify roadway features that lead to a higher crash risk (so called risk factors). In this project, we model the number of car crashes along road segments in Minnesota using Poisson regression with spatially correlated random effects. These spatial random effects serve to account for important covariates left out of the model or potential residual spatial correlation in the crash counts. Estimating both the coefficients associated with covariates and estimated spatial components, we are be able to determine (1) which road characteristics lead to higher accident rates and (2) which road segments have higher than expected crash rates for further investigation.}
+
+\acknowledgments{Thank you to the Department of Statistics at BYU. I am especially grateful for each professor who I have taken classes from and worked with one on one. I specifically want to thank Ruth Dauwalder, for inviting me to to study statistics in the first place and for encouraging me to stay in the program when times got difficult. I am also thankful to Dr. Heaton, for the time he has put in to helping me learn and understand the model for this project. The Statistics program at BYU has helped me learn how to work hard, think critically, push myself to my limits, and solve problems. Thanks to all the faculty and administration who have made this program one of the best experiences of my life.  }
+
+
+\begin{document}
+%\setlength{\parindent}{0pt} % Removes automatic indent
+
+\input Chapter1.1.tex
+\input Chapter2.1.tex
+\input Chapter3.1.tex 
+\input Chapter4.1.tex
+\input Chapter5.01.tex
+
+\bibliography{bibliography}	
+
+\end{document}	

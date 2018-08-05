@@ -1,0 +1,95 @@
+\chapter{Literature Review}
+The purpose of this chapter is to describe/write about the main methods you are going to use in your thesis.  This should be a very technical chapter with lots of formulas etc.
+
+\section{Poisson Regression}
+Describe (in general - not in terms of crashes) what a Poisson regression model is.  Cite a few books (I have some if you need them).
+
+Poisson regression is used to model count data and/or contigency tables. For example, Poisson regression can be used to model the number of incoming calls in a call center for different time segments throughout the day. When the number of occurances of an event is bounded, it may be more appropriate to use another type of regression such as Binomial response regression. However, when there are large totals and small probabilities of occurance then a Poisson regression may be used \cite{faraway06}. There are three main components of Poisson regression modeling: \cite{weisberg05}
+
+\begin{enumerate}
+\item \textbf{The distribution of Y:} $ Y_i | x_i \sim Poisson(\lambda(x_i)) $
+\item \textbf{Linear predictor:} $\lambda(x_i)$ depends on $x_i$ through linear predictor $X' \beta$ ($\beta$ unkown)
+\item \textbf{Link function:} The link function is the log-link function. $log(\lambda(x_i))=X'\beta$
+\end{enumerate}
+
+The purpose of the log-link function is to ensure that the random variable $\lambda(x_i) > 0$ since the rate parameter of a poisson distribution must be greater than zero. $\beta$ estimates cannot be solved explicitly, therefore numerical methods can be used to estimate maximum likelihood estimates. 
+
+\textbf{Interpretation of $\hat{\beta}$ coefficients:} Because we are using the log-link function to ensure rate parameter is greater than zero, interpretation of the $\hat{\beta}$ coefficients is not as simple as traditional linear regression. However, there still is some nice interpretebililty. For example, let $\hat{\beta}=1.45$. This means that the for each one unit increase in $X_1$, the log expected count increases by 1.45. Another way to look at it is to first exponentiate the estimate: $e^{1.45}\approx 4.26$. This means, that for each one unit increase in $X_1$ the expected count increased multiplicatively by 4.26 times. An even simpler (and less informative way) to interpret the coefficient is to simply look at the sign of the coefficient. If the coefficient is positive, it tends to increase the expected count whilie if the coefficient is negative, it tends to decrease the expected count.
+
+\textbf{Assumptions:}
+\begin{enumerate}
+\item Independent observations
+\item Distributional assumption: $Y_i | X_i \sim Pois(\lambda_i)$
+\item Log transformed expected counts have linear association with continuous covariates
+\end{enumerate}
+
+The distributional assumption that $Y_i | X_i \sim Pois(\lambda_i)$ is difficult to test. One way to test this is to compare the means and variances within each respective group because in a Poisson distribution $E(X) = Var(X)$. Faraway suggests a crude test, by plotting $\hat{\mu_i}$ and $(y_i-\hat{\mu_i})^2$. This can give a general idea if the variance is somewhat close to the mean. An alternative to this method would be to group similar groups of covariates together compare the mean of their expected values and and the variance within that group. 
+
+\textbf{Goodness of Fit:} To test whether or not the Poisson regression model is correctly specified, residual deviance ($G^2$) is often used. If the Poisson mean function is correctly specified, the residual deviance $G^2 \sim \chi^2(n-p')$ where n is the number of segments and p' is the rank of X (Faraway). $G^2$ is calculated by: $G^2=2\sum\limits_{i=1}^n(y_i log(\frac{y_i}{\hat{\mu_i}}) - (y_i - \hat{\mu_i}))$, where $\hat{\mu_i}=e^{X_i'\hat{\beta}}$. An alternative to the $G^2$ statistic is Pearson's $X^2$ which is given by the formula: $X^2=\sum\limits_{i=1}^n \frac{(y_i-\hat{\mu_i})^2}{\hat{\mu_i}}$. Similar to the $G^2$ statistic, $X^2$ follows a $\chi^2(n-p')$ distribution if the model fit is well. At large sample sizes, the $G^2$ and $X^2$ give the same inference, but at smaller sample sizes, $X^2$ is more powerful (Weisberg). 
+
+\section{Conditional Autoregressive Model}
+A conditonally autoregressive model (CAR) model is used to model spatial correlation in areal data. Begin with a proximity matrix W. W is user defined 
+with the diagonal being set to zero. $W_{ij}$ is commonly set to one if:
+
+\begin{itemize}
+\item They share a common boundry, 
+\item If the distance between units $\leq$ k, or
+\item Within m nearest neighbors
+\end{itemize}
+
+ Putting the W matrix aside, assume that $$Y_i|y_{j},  i \neq j \sim N\bigg( \sum\limits_j   b_{ij} y_j, \tau_i^2 \bigg), i=1,...,n$$
+
+Since these full conditionals are compatible, through Brook's Lemma we can obtain the joint distribution up to a proportionality constant: $$ p(y_1,...,y_n) \propto  exp \bigg\{   -\frac{1}{2}y' D^{-1}(I - B)y  \bigg\}   $$
+
+$B = \{ b_{ij}\}$ and $D$ is diagonal with $D_{ii} = \tau_i^2$. It must be ensured that $D^{-1}(I - B)$ (the covariance matrix) is symmetric. If we ensure that $\frac{b_{ij}}{\tau_i^2} = \frac{b_{ji}}{\tau_j^2}$ for all $i,j$ then  $D^{-1}(I - B)$ is indeed symmetric. Setting $b_{ij} = w_{ij} / w_{i+} $ and $\tau_i^2 = \tau^2/w_{i+}$ gives us
+
+  $$y_i | y_j, i \neq j \sim N\bigg(\sum_j w_{ij} y_j / w_{i+} , \tau^2/w_{i+}\bigg)$$
+
+The joint distribution now becomes:
+
+ $$ p(y_1,...,y_n) \propto  exp \bigg\{   -\frac{1}{2 \tau_2}y' (D_w-W) y  \bigg\}   $$
+
+There is one problem with this joint density: $(D_w-W)$ is singular. We can fix this by putting a constraint. If we rewrite the previous equation  as the following: 
+
+ $$ p(y_1,...,y_n) \propto  exp \bigg\{   -\frac{1}{2 \tau_2} \sum \limits_{i \neq j} (y_i-y_j)^2  \bigg\}   $$
+
+The constraint that we will add to correct for the impropriety of this density is $\sum_i Y_i = 0$. 
+
+
+\section{Baysian LASSO}
+Park Casella 2008
+
+The Lasso is used to estimate the regression parameters $\beta=(\beta_1,...,\beta_p)'$ in the model: $y= \mu 1_n + X\beta + \epsilon$. To attain the Lasso estimates, we use $min (y-XB)'(y-XB) + \lambda \sum \limits_{j=1}^p |\beta_j|$. Tibsherani suggested the Lasso estimates are comparable to the mode of the posterior distributions for the regression parameters when using identical Laplace priors. Typically, the location parameter $\mu$ is set to 0, and the scale parameter $s$ is similar to the penalty parameter $\lambda$ in a traditional Lasso estimation model. 
+
+Do we center the X's?
+
+\section{MCMC}
+Describe MCMC (the MH algorithm), why we need it and how you are going to use it.  Talk about what adaptive MCMC is and how it will be useful for you.
+
+We can calculate the posterior density (up to the proportionality constant) for our parameters of interest. However, since it is an unknown distribution we don't know how to easily calculate important values such as the expectation, variance, and quantiles of interest. One way to overcome this obstacle is by obtaining a large sample from this distribution and then using that sample to estimate values of interest. Markov chain Monte Carlo (MCMC) is used to sample from probability distributions. Suppose we have a density $f(x)$ that is easy to evaluate but with no know mechanism to sample from. The Metropolis Hastings algorithm is as follows: 
+
+\begin{enumerate}
+\item Choose a starting value: $x_t$
+\item Propose a new value using a proposal density Q: $x'$
+\item Evaluate the density at both the current state and the proposed state. Then calculate the following ratio: $$  R = \frac{P(x')}{P(x_t)}  \frac{Q(x_t | x')}{Q(x'|x_t)}      $$
+\item Accept the proposed draw with probability $min(1,R)$
+\end{enumerate}
+
+Having a proper proposal mechanism is key to obtaining an acceptable draw from a distribution in a finite amount of time. Typically a symmetric proposal density is used because it reduces R to equal:  $  R = \frac{P(x')}{P(x_t)}  $ since  $\frac{Q(x_t | x')}{Q(x'|x_t)}  =1  $ in the case of a symmetric density Q. It can be difficult to choose a good proposal distribution since both the size and the spatial orientation of the target density is unknown. For this reason, Heikki et. al (2001) proposed using an adaptive metropolis algorithm. This algorithm is called the adaptive Metropolis (AM) algorithm. \\
+
+
+Suppose we have sampled points $\beta_1,...,\beta_{t-1}$. Our proposal distribution, Q is a Gaussian distribution centered at the current point, with covariance matrix equal to $C_t=s_d cov(\beta_1,...,\beta_{p}) + s_d \epsilon I_p$. The $s_d$ parameter only depends on dimension p, $\epsilon > 0$ is a chosen constant, and $I_p$ is a p-dimensional identity matrix. Based on previous knowledge (which may be very poor), we choose a a starting covariance matrix $C_0$ and then choose an index $t_0 > 0$ which defines an initial covariance time period such that: 
+
+\[
+    C_t = 
+\begin{cases}
+    C_0 ,& \text{if } t\leq t_0\\
+    s_d cov(\beta_1,...,\beta_{p}) + s_d \epsilon I_d,              & t > t_0
+\end{cases}
+\]
+
+The choice for $t$ is free, but the bigger $t$ is, the more slowly the effect of the adaptation is felt. The value for the scaling parameter $s_d$ can also be chosen, but Haario et. al recommend using the value $s_d = (2.4^2)/p$. The parameter $\epsilon$ must be greater than zero to ensure that the covariance matrix remains positive definite, but $\epsilon$ may be very small. 
+
+
+
+

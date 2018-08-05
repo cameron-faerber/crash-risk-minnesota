@@ -1,0 +1,60 @@
+\chapter{A Spatial Model for Car Crash Rates}
+This chapter provides rigorous detail on the statistical model used to identify risk factors and trouble spots for highway safety.
+\section{Model}
+Let $Y_s$ denote the number of crashes that occur on road segment $s$ for $s=1,\dots, S$.  Because $Y_s$ is a count, we assume 
+\begin{align}
+Y_s \overset{ind}{\sim} \mathcal{P}\left( E_s \mu_s\right)
+\label{likelihood}
+\end{align}
+where $\mathcal{P}(\mu)$ represents the Poisson distribution with mean $\mu$. In \eqref{likelihood}, $E_s$ is the \textit{known} expected number of crashes that occur in segment $s$ and is calculated as \
+\begin{align}
+E_s &= \frac{\sum_j Y_j}{\sum_j (\textrm{AADT}_j \times \textrm{length}_j)} \times \textrm{AADT}_s \times \textrm{length}_s
+\label{Es}
+\end{align}
+where $\textrm{AADT}_s$ is the average annual daily traffic and $\textrm{length}_s$ is the length (in miles) of segment $s$.  Note that, from \eqref{Es}, as the traffic in segment $s$ increases, so does $E_s$.  Likewise, $E_s$ increases with $\textrm{length}_s$ suggesting that traffic and a long segment are associated with a higher number of crashes.
+
+The $\mu_s$ in \eqref{likelihood} can be thought of as a relative risk. If $\mu_s > 1$, then segment $s$ has a higher than expected number of crashes, while if $0 < \mu_s < 1 $ then segment $s$ has a lower than expected number of crashes. Estimating $\mu_s$ for all road segments can identify which segments of road have a higher than expected number of crashes, i.e. dangerous segments of road.
+
+To identify risk factors while accounting for spatial correlation,  we set
+\begin{align}
+\log(\mu_s) =  \vec{x}_s' \vec{\beta} + \phi_s
+\label{rr}
+\end{align}
+where $\vec{x}_s = (1,x_{s1},\dots,x_{sP})'$ is a vector of covariates describing the roadway (see Table \ref{roadvars}) and $\phi_s$ is a spatial random effect. The vector $\vec{\beta} = (\beta_0,\beta_1,\dots,\beta_P)'$ quantifies the effect of each of the road factors on the log-relative risk ($\log(\mu_s)$) for road segment $s$. Specifically, if $\beta_p > 0$ ($\beta_p<0$) then increases in $x_{sp}$ are associated with increases (decreases) in the relative risk of car accidents.
+
+The $\phi_s$ captures the spatial dependence among crash rates as seen in the data in Figure \ref{i35} and is traditionally modeled using a CAR model. However,  as shown in \citet{hughes12}, the $\phi_s$ can potentially confound the main effects ($\vec{\beta}$) leading to an increase in the posterior variance of the $\vec{\beta}$.  This is highly undesirable for this project because $\vec{\beta}$ will identify roadway characteristics that are potentially harmful. To correct for this, we follow \citet{hughes12} and constrain the spatial effects to be orthogonal to the main effects. To do this, let $\vec{\phi} = (\phi_1,\dots,\phi_s) = \vec{M} \vec{\phi}^\star$ where $\vec{M}$ is a known matrix (see below) and $\vec{\phi}^\star$ is a vector of unknown coefficients.  Under this model we can write \eqref{rr} jointly as:
+\begin{align}
+\log(\vec{\mu}) = \vec{X}\vec{\beta} + \vec{M}\vec{ \phi}^\star
+\label{vecrr}
+\end{align}
+where $\vec{\mu} = (\mu_1,\dots,\mu_S)'$ is the vector of relative risks.  In the framework of Equation \eqref{vecrr}, constraining the spatial effects $\vec{\phi}$ to be orthogonal to the main effects $\vec{\beta}$ amount to ensuring that $\vec{M}$ is orthogonal to the design matrix $\vec{X}$.  In this project, we take $\vec{M}$ to be the Moran Operator from \citet{hughes12} and is obtained using the following steps:
+\begin{enumerate}
+\item Calculate $\vec{P}^\perp = \vec{I} - \vec{X}(\vec{X}'\vec{X})^{-1}\vec{X}'$.
+\item Calculate $\vec{M}^\star =  \vec{P}^\perp \vec{W} \vec{P}^\perp $ where $\vec{W}$ is the weight (adjacency) matrix for the CAR model described in Chapter 2.
+\item Calculate the eigendecomposition of $\vec{M}^\star = \vec{CDC}'$ where $\vec{C}$ is the matrix of (column)-eigenvectors and $\vec{D}$ is the diagonal matrix of eigenvalues.
+\item Set $\vec{M}$ equal to the $Q$ columns of $\vec{C}$ associated with the $Q$ largest eigenvalues in $\vec{D}$ where $Q \ll S$.
+\end{enumerate}
+
+To define $\vec{M}$ as above, we must choose an appropriate value for $Q$ (the number of eigenvectors taken from $\vec{C}$ to create the Moran operator). The parameter $Q$ can be thought of as a smoothing parameter: the smaller the value of $Q$, the smoother crash rates. Instead of arbitrarily choosing a value for $Q$, we will use deviance information criterion (DIC; \citealt{spiegelhalter02}) to determine the most appropriate value for $Q$. Specifically, we will compare DIC values for $Q$ ranging from 10 to 100, and choose the value of $Q$ that is associated with the lowest DIC value. Because selecting $Q$ is computationally challenging, we will assume that the most appropriate value of $Q$ is constant across all highways in Minnesota.
+
+As prior distributions, the prior on the spatial random effects $\vec{\phi}^\star$ is
+\begin{align}
+p(\vec{\phi}^\star|\tau) \propto \tau^{Q/2} \exp\left\{- \frac{\tau}{2} \vec{\phi}^* \vec{M}'\left[\text{diag}(\bm{W}\bm{1}) - \bm{W}\right]\vec{M} \vec{\phi}^\star\right\}
+\end{align}
+where, again, $Q$ is the number of eigenvectors chosen from $\vec{C}$ to form the Moran operator $\vec{M}$ and $\bm{W}$ is the weight (adjacency) matrix from the CAR model.  Finally, we use a conjugate gamma prior on $\tau$ such that $\tau \sim \mathcal{G}(2.01,1)$ where $\mathcal{G}(a,b)$ denotes the Gamma distribution with shape parameter $a$ and rate parameter $b$. Under this prior specification, the complete conditional posterior distribution of $\tau$ is also a gamma distribution with shape parameter $Q/2 + 2.01$ and rate parameter $1/2 \vec{\phi}^\star  \vec{M}'\left[\text{diag}(\bm{W}\bm{1}) - \bm{W}\right]\vec{M} \vec{\phi}^\star + 1$.
+
+For the coefficients to roadway factors, we assume that $\beta_p \stackrel{iid}{\sim} \mathcal{L}(0,t) \textrm{ for }  p=1,..,P$, where $\mathcal{L}(m,t)$ denotes the Laplace distribution with location parameter $\mu$ and scale parameter $t$.  As described in Chapter 2, the Laplace distribution corresponds to the LASSO penalty.  Hence, our choice of prior here shrinks coefficients to zero and allows for variable selection.  The scale parameter $t$ determines the strength of the LASSO penalty term, or in other words, determines how fast the $\beta_p$ coefficients are pulled towards zero. Since we don't have information on what value of $t$ to use, we place a hyper-prior on $t$ such that $t \sim \mathcal{IG}(2.01,1)$ where $\mathcal{IG}(a,b)$ denotes the inverse-gamma distribution with shape $a$ and rate $b$. An inverse gamma hyperprior is a conjugate prior distribution for $t$.  In other words, the complete conditional  distribution of $t$ will also be an inverse-gamma with shape parameter $2.01 + P$ and rate parameter $\sum_{p=1}^P |\beta_p| + 1$.
+
+
+
+\section{Model Fitting}
+
+In the model described above, the unknown parameters are $\vec{\beta}$, $\vec{\phi}^\star$, $t$ and $\tau$.  We use the adaptive Markov chain Monte Carlo described in Section 2.4 to obtain posterior summaries of these parameters. Specifically, we ``update'' the unknown parameters in three blocks.  First, we update $(\vec{\beta},\vec{\phi}^\star)$ jointly. For the first 250 draws, we generate a proposal from a multivariate Gaussian distribution centered at the current value and covariance matrix $(0.01^2)\vec{I}$. The covariance matrix $(.01^2)\bm{I}$ is used because it allows enough proposals to be accepted such that the MCMC can begin to adapt. After the 250th draw, we generate proposals from the adaptive covariance matrix described in Section 2.4. The value for  $\epsilon$ was set to $.01^2$.
+
+After updating $(\vec{\beta},\vec{\phi}^\star)$ jointly,  $t$ and  $\tau$ are updated sequentially. Because conjugate priors were used for both of these parameters, they are easily updated by obtaining a random draw from their respective complete conditional distributions.
+ 
+We ran the MCMC for 120,000 draws, after a burn-in period of 15,000 leaving a total of 105,000 draws.  Appropriate convergence of the Markov chain was assessed using Monte Carlo standard errors \citep{jones06}.  The starting values for the vector $(\vec{\beta},\vec{\phi}^\star)$ were chosen to be the maximum likelihood estimates. The starting values for $t$ and $\tau$ were set to 1.
+
+ 
+
+
